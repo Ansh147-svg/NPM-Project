@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: alert-engine-config
+  labels:
+    app: alert-engine
+data:
+  LOG_LEVEL: "info"
+  # Alert engine configuration
+  ALERT_CHECK_INTERVAL: "10"
+  ALERT_HISTORY_RETENTION_HOURS: "24"
+  MAX_ALERTS_PER_RUN: "1000"
+  # Escalation policies
+  ESCALATION_LEVEL_1_MINUTES: "5"
+  ESCALATION_LEVEL_2_MINUTES: "15"
+  ESCALATION_LEVEL_3_MINUTES: "60"

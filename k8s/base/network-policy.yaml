@@ -1,0 +1,206 @@
+# Deny all traffic by default (applied to all namespaces with label)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-ingress
+  labels:
+    app: netvision
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+---
+# Allow ingress to frontend from anywhere (for user access)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-frontend-ingress
+  labels:
+    app: netvision
+spec:
+  podSelector:
+    matchLabels:
+      app: netvision-frontend
+  policyTypes:
+  - Ingress
+  ingress:
+  - from: []
+    ports:
+    - protocol: TCP
+      port: 80
+---
+# Allow ingress to backend from frontend and internal services
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-backend-ingress
+  labels:
+    app: netvision
+spec:
+  podSelector:
+    matchLabels:
+      app: netvision-backend
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          app: netvision-frontend
+    - podSelector:
+        matchLabels:
+          app: netvision-agent
+    - podSelector:
+        matchLabels:
+          app: alert-engine
+    ports:
+    - protocol: TCP
+      port: 8000
+    - protocol: TCP
+      port: 9090  # metrics
+---
+# Allow ingress to alert-engine from backend and internal services
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-alert-engine-ingress
+  labels:
+    app: netvision
+spec:
+  podSelector:
+    matchLabels:
+      app: alert-engine
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          app: netvision-backend
+    - podSelector:
+        matchLabels:
+          app: netvision-agent
+    ports:
+    - protocol: TCP
+      port: 8000
+---
+# Allow egress to databases for backend
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-backend-egress-databases
+  labels:
+    app: netvision
+spec:
+  podSelector:
+    matchLabels:
+      app: netvision-backend
+  policyTypes:
+  - Egress
+  egress:
+  - to:
+    - podSelector:
+        matchLabels:
+          app: postgres
+    ports:
+    - protocol: TCP
+      port: 5432
+  - to:
+    - podSelector:
+        matchLabels:
+          app: redis
+    ports:
+    - protocol: TCP
+      port: 6379
+  - to:
+    - podSelector:
+        matchLabels:
+          app: influxdb
+    ports:
+    - protocol: TCP
+      port: 8086
+  - to:
+    - podSelector:
+        matchLabels:
+          app: kafka
+    ports:
+    - protocol: TCP
+      port: 9092
+---
+# Allow egress to external networks for agents (for monitoring targets)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-agent-egress-external
+  labels:
+    app: netvision
+spec:
+  podSelector:
+    matchLabels:
+      app: netvision-agent
+  policyTypes:
+  - Egress
+  egress:
+  - to:
+    - ipBlock:
+        cidr: 0.0.0.0/0
+    # In production, you'd want to restrict this to specific monitoring targets
+    # or use a more sophisticated approach like DNS-based policies
+  - to:
+    - podSelector:
+        matchLabels:
+          app: netvision-backend
+    ports:
+    - protocol: TCP
+      port: 8000
+---
+# Allow ingress to Kafka from internal services
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-kafka-ingress
+  labels:
+    app: netvision
+spec:
+  podSelector:
+    matchLabels:
+      app: kafka
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          app: netvision-backend
+    - podSelector:
+        matchLabels:
+          app: alert-engine
+    ports:
+    - protocol: TCP
+      port: 9092
+---
+# Allow ingress to Zookeeper from Kafka
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-zookeeper-ingress
+  labels:
+    app: netvision
+spec:
+  podSelector:
+    matchLabels:
+      app: zookeeper
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          app: kafka
+    ports:
+    - protocol: TCP
+      port: 2181
+    - protocol: TCP
+      port: 2888
+    - protocol: TCP
+      port: 3888

@@ -1,0 +1,38 @@
+replicaCount: 1
+
+image:
+  repository: ghcr.io/your-org/netvision
+  tag: latest
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 200m
+    memory: 256Mi
+
+autoscaling:
+  minReplicas: 1
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 80
+  targetMemoryUtilizationPercentage: 80
+
+secrets:
+  databaseUrl: ""
+  redisUrl: ""
+  influxdbUrl: ""
+  influxdbToken: ""
+  influxdbOrg: ""
+  influxdbBucket: ""
+  secretKey: ""
+  agentApiKey: ""
+  agentId: ""
+
+nextPublicApiUrl: ""
+nextPublicSiteUrl: ""
+nodeEnv: production
+backendUrl: ""
+checkInterval: "15"
+kafkaBootstrapServers: kafka:9092
+logLevel: info

@@ -1,0 +1,120 @@
+# Staging environment values
+replicaCount: 2
+
+image:
+  repository: ghcr.io/your-org/netvision
+  pullPolicy: IfNotPresent
+  tag: "latest"
+
+# Backend specific
+backend:
+  replicaCount: 2
+  resources:
+    requests:
+      cpu: "250m"
+      memory: "512Mi"
+    limits:
+      cpu: "500m"
+      memory: "1Gi"
+  autoscaling:
+    minReplicas: 2
+    maxReplicas: 5
+    targetCPUUtilizationPercentage: 70
+    targetMemoryUtilizationPercentage: 80
+
+# Frontend specific
+frontend:
+  replicaCount: 2
+  resources:
+    requests:
+      cpu: "200m"
+      memory: "256Mi"
+    limits:
+      cpu: "400m"
+      memory: "512Mi"
+  autoscaling:
+    minReplicas: 2
+    maxReplicas: 4
+    targetCPUUtilizationPercentage: 60
+    targetMemoryUtilizationPercentage: 70
+  nextPublicApiUrl: "https://staging-netvision.example.com/api/v1"
+  nextPublicSiteUrl: "https://staging-netvision.example.com"
+  nodeEnv: "production"
+
+# Agent specific
+agent:
+  replicaCount: 3
+  resources:
+    requests:
+      cpu: "100m"
+      memory: "128Mi"
+    limits:
+      cpu: "200m"
+      memory: "256Mi"
+  autoscaling:
+    minReplicas: 3
+    maxReplicas: 6
+    targetCPUUtilizationPercentage: 50
+    targetMemoryUtilizationPercentage: 60
+  checkInterval: "15"
+  backendUrl: "https://staging-netvision.example.com/api/v1"
+
+# Alert engine specific
+alertEngine:
+  replicaCount: 2
+  resources:
+    requests:
+      cpu: "200m"
+      memory: "256Mi"
+    limits:
+      cpu: "400m"
+      memory: "512Mi"
+  autoscaling:
+    minReplicas: 2
+    maxReplicas: 4
+    targetCPUUtilizationPercentage: 70
+    targetMemoryUtilizationPercentage: 80
+  kafkaBootstrapServers: "kafka-staging:9092"
+
+# Kafka specific
+kafka:
+  replicaCount: 3
+  resources:
+    requests:
+      cpu: "500m"
+      memory: "1Gi"
+    limits:
+      cpu: "1500m"
+      memory: "3Gi"
+
+# Global autoscaling defaults
+autoscaling:
+  minReplicas: 1
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 80
+  targetMemoryUtilizationPercentage: 80
+
+# Global resources defaults
+resources:
+  requests:
+    cpu: "100m"
+    memory: "128Mi"
+  limits:
+    cpu: "200m"
+    memory: "256Mi"
+
+# Secrets - these should be managed by external secrets manager in production
+secrets:
+  # Placeholder values - replace with actual secrets from vault/external manager
+  databaseUrl: "postgresql://user:password@postgres-staging:5432/monitoring"
+  redisUrl: "redis://redis-staging:6379/0"
+  influxdbUrl: "http://influxdb-staging:8086"
+  influxdbToken: "staging-token"
+  influxdbOrg: "monitoring"
+  influxdbBucket: "metrics"
+  secretKey: "staging-secret-key-change-in-production"
+  agentApiKey: "staging-agent-key"
+  agentId: "staging-agent-uuid"
+  redisUrl: "redis://redis-staging:6379/0"
+
+logLevel: "info"

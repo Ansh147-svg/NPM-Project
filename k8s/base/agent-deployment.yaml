@@ -1,0 +1,136 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: netvision-agent
+  labels:
+    app: netvision-agent
+    version: v{{ .Values.image.tag }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app: netvision-agent
+  template:
+    metadata:
+      labels:
+        app: netvision-agent
+        version: v{{ .Values.image.tag }}
+      annotations:
+        checksum/config: {{ include "netvision.agentConfigmap" . | sha256sum }}
+    spec:
+      serviceAccountName: netvision-agent
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 2000
+      containers:
+      - name: agent
+        image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+        imagePullPolicy: IfNotPresent
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+              - ALL
+        env:
+        - name: BACKEND_URL
+          value: "{{ .Values.backendUrl }}"
+        - name: AGENT_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: netvision-agent-secrets
+              key: agent-api-key
+        - name: AGENT_ID
+          valueFrom:
+            secretKeyRef:
+              name: netvision-agent-secrets
+              key: agent-id
+        - name: CHECK_INTERVAL
+          value: "{{ .Values.checkInterval }}"
+        - name: LOG_LEVEL
+          value: "{{ .Values.logLevel }}"
+        resources:
+          requests:
+            cpu: "{{ .Values.resources.requests.cpu }}"
+            memory: "{{ .Values.resources.requests.memory }}"
+          limits:
+            cpu: "{{ .Values.resources.limits.cpu }}"
+            memory: "{{ .Values.resources.limits.memory }}"
+        livenessProbe:
+          exec:
+            command:
+              - pgrep
+              - "-f"
+              - "agent.py"
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          exec:
+            command:
+              - pgrep
+              - "-f"
+              - "agent.py"
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+        startupProbe:
+          exec:
+            command:
+              - pgrep
+              - "-f"
+              - "agent.py"
+          initialDelaySeconds: 5
+          periodSeconds: 10
+          timeoutSeconds: 3
+          failureThreshold: 10
+        volumeMounts:
+        - name: tmp-volume
+          mountPath: /tmp
+        - name: config-volume
+          mountPath: /app/config
+          readOnly: true
+      volumes:
+      - name: tmp-volume
+        emptyDir: {}
+      - name: config-volume
+        configMap:
+          name: netvision-agent-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: netvision-agent
+  labels:
+    app: netvision-agent
+spec:
+  selector:
+    app: netvision-agent
+  ports:
+  - name: http
+    port: 8000
+    targetPort: http
+  type: ClusterIP
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: netvision-agent
+  labels:
+    app: netvision-agent
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: netvision-agent-pdb
+  labels:
+    app: netvision-agent
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app: netvision-agent

@@ -1,0 +1,162 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: netvision-backend
+  labels:
+    app: netvision-backend
+    version: v{{ .Values.image.tag }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app: netvision-backend
+  template:
+    metadata:
+      labels:
+        app: netvision-backend
+        version: v{{ .Values.image.tag }}
+      annotations:
+        checksum/config: {{ include "netvision.backendConfigmap" . | sha256sum }}
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8000"
+        prometheus.io/path: "/metrics"
+    spec:
+      serviceAccountName: netvision-backend
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 2000
+      containers:
+      - name: backend
+        image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+        imagePullPolicy: IfNotPresent
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+              - ALL
+        ports:
+        - name: http
+          containerPort: 8000
+        - name: metrics
+          containerPort: 9090
+        env:
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: netvision-backend-secrets
+              key: database-url
+        - name: REDIS_URL
+          valueFrom:
+            secretKeyRef:
+              name: netvision-backend-secrets
+              key: redis-url
+        - name: INFLUXDB_URL
+          valueFrom:
+            secretKeyRef:
+              name: netvision-backend-secrets
+              key: influxdb-url
+        - name: INFLUXDB_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: netvision-backend-secrets
+              key: influxdb-token
+        - name: INFLUXDB_ORG
+          valueFrom:
+            secretKeyRef:
+              name: netvision-backend-secrets
+              key: influxdb-org
+        - name: INFLUXDB_BUCKET
+          valueFrom:
+            secretKeyRef:
+              name: netvision-backend-secrets
+              key: influxdb-bucket
+        - name: SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: netvision-backend-secrets
+              key: secret-key
+        - name: LOG_LEVEL
+          value: "{{ .Values.logLevel }}"
+        resources:
+          requests:
+            cpu: "{{ .Values.resources.requests.cpu }}"
+            memory: "{{ .Values.resources.requests.memory }}"
+          limits:
+            cpu: "{{ .Values.resources.limits.cpu }}"
+            memory: "{{ .Values.resources.limits.memory }}"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: http
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: http
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+        startupProbe:
+          httpGet:
+            path: /health
+            port: http
+          initialDelaySeconds: 5
+          periodSeconds: 10
+          timeoutSeconds: 3
+          failureThreshold: 10
+        volumeMounts:
+        - name: tmp-volume
+          mountPath: /tmp
+        - name: config-volume
+          mountPath: /app/config
+          readOnly: true
+      volumes:
+      - name: tmp-volume
+        emptyDir: {}
+      - name: config-volume
+        configMap:
+          name: netvision-backend-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: netvision-backend
+  labels:
+    app: netvision-backend
+spec:
+  selector:
+    app: netvision-backend
+  ports:
+  - name: http
+    port: 8000
+    targetPort: http
+  - name: metrics
+    port: 9090
+    targetPort: metrics
+  type: ClusterIP
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: netvision-backend
+  labels:
+    app: netvision-backend
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: netvision-backend-pdb
+  labels:
+    app: netvision-backend
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app: netvision-backend

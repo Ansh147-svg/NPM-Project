@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: netvision-agent-config
+  labels:
+    app: netvision-agent
+data:
+  LOG_LEVEL: "info"
+  CHECK_INTERVAL: "15"
+  # Agent-specific configuration
+  BACKEND_TIMEOUT: "30"
+  HEARTBEAT_INTERVAL: "15"
+  MAX_RETRIES: "3"
+  RETRY_BACKOFF: "2"

@@ -1,0 +1,4 @@
+{{- range $path, $_ := .Files.Glob "base/*.yaml" }}
+{{ tpl ($.Files.Get $path) $ }}
+---
+{{- end }}

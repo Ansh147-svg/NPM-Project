@@ -1,0 +1,118 @@
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: npm-postgres
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: monitoring
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user -d monitoring"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - npm-net
+
+  redis:
+    image: redis:7-alpine
+    container_name: npm-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - npm-net
+
+  influxdb:
+    image: influxdb:2.7-alpine
+    container_name: npm-influxdb
+    environment:
+      DOCKER_INFLUXDB_INIT_MODE: setup
+      DOCKER_INFLUXDB_INIT_USERNAME: admin
+      DOCKER_INFLUXDB_INIT_PASSWORD: admin-pass
+      DOCKER_INFLUXDB_INIT_ORG: monitoring
+      DOCKER_INFLUXDB_INIT_BUCKET: metrics
+      DOCKER_INFLUXDB_INIT_ADMIN_TOKEN: admin-token
+    ports:
+      - "8086:8086"
+    volumes:
+      - influxdb_data:/var/lib/influxdb2
+    networks:
+      - npm-net
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: npm-backend
+    environment:
+      DATABASE_URL: postgresql+asyncpg://user:password@postgres:5432/monitoring
+      REDIS_URL: redis://redis:6379/0
+      INFLUXDB_URL: http://influxdb:8086
+      INFLUXDB_TOKEN: admin-token
+      INFLUXDB_ORG: monitoring
+      INFLUXDB_BUCKET: metrics
+      SECRET_KEY: your-secret-key-change-in-production
+      DEBUG: "false"
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      influxdb:
+        condition: service_started
+    networks:
+      - npm-net
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        API_INTERNAL_URL: http://backend:8000
+    container_name: npm-frontend
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:8000/api/v1
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    networks:
+      - npm-net
+
+  agent:
+    profiles:
+      - container-agent
+    build:
+      context: ./agent
+      dockerfile: Dockerfile
+    container_name: npm-agent
+    environment:
+      BACKEND_URL: http://backend:8000
+      AGENT_API_KEY: ${AGENT_API_KEY:-}
+      AGENT_ID: ${AGENT_ID:-}
+    depends_on:
+      - backend
+    networks:
+      - npm-net
+
+volumes:
+  postgres_data:
+  redis_data:
+  influxdb_data:
+
+networks:
+  npm-net:
+    driver: bridge

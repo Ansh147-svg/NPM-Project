@@ -1,0 +1,34 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: netvision-backend-config
+  labels:
+    app: netvision-backend
+data:
+  LOG_LEVEL: "info"
+  # Application configuration
+  APP_NAME: "Network Monitoring Platform"
+  APP_VERSION: "1.0.0"
+  API_V1_PREFIX: "/api/v1"
+  # Database connection pool settings
+  DB_POOL_SIZE: "20"
+  DB_MAX_OVERFLOW: "10"
+  DB_POOL_TIMEOUT: "30"
+  # Redis cache settings
+  REDIS_CACHE_TTL: "300"
+  # JWT settings
+  ALGORITHM: "HS256"
+  ACCESS_TOKEN_EXPIRE_MINUTES: "30"
+  REFRESH_TOKEN_EXPIRE_DAYS: "7"
+  # Security settings
+  BCRYPT_ROUNDS: "12"
+  CORS_ORIGINS: '["https://netvision.example.com"]'
+  # Rate limiting
+  RATE_LIMIT_REQUESTS: "100"
+  RATE_LIMIT_WINDOW: "60"
+  # Monitoring settings
+  AGENT_TIMEOUT: "30"
+  DEFAULT_CHECK_INTERVAL: "60"
+  # Celery settings
+  CELERY_BROKER_URL: "redis://redis:6379/1"
+  CELERY_RESULT_BACKEND: "redis://redis:6379/2"
